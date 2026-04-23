@@ -1,0 +1,36 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit 1
+
+# Source OpenFOAM run helpers (logging)
+. "$WM_PROJECT_DIR/bin/tools/RunFunctions"
+
+if [ ! -f mesh ]; then
+    echo "Error: Fluent mesh file 'mesh' not found in $PWD"
+    echo "Place the exported Fluent mesh here and re-run ./Allmesh"
+    exit 1
+fi
+
+echo "Removing any previous mesh / region split (keeping 0/ boundary fields)..."
+rm -rf constant/polyMesh constant/cellToRegion constant/region0
+rm -rf constant/fluid/polyMesh constant/solid/polyMesh
+rm -f 0/cellToRegion
+rm -f 0/fluid/cellToRegion 0/solid/cellToRegion 2>/dev/null
+
+echo "Converting Fluent mesh to OpenFOAM..."
+runApplication fluent3DMeshToFoam mesh
+
+# Rename Fluent cell zones to region folder names (if export still used fluid-fluid / solid-solid)
+if [ -d constant/region0/polyMesh ]; then
+    echo "Normalizing zone names to fluid / solid in imported polyMesh..."
+    for z in cellZones faceZones boundary; do
+        [ -f "constant/region0/polyMesh/$z" ] || continue
+        sed -i -e 's/fluid-fluid/fluid/g' -e 's/solid-solid/solid/g' "constant/region0/polyMesh/$z"
+    done
+fi
+
+echo "Splitting mesh into cellZone regions (fluid, solid)..."
+runApplication splitMeshRegions -cellZonesOnly -overwrite
+
+echo "Allmesh finished."
+#------------------------------------------------------------------------------

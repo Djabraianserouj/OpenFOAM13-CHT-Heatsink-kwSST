@@ -1,0 +1,40 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    location    "constant/solid";
+    object      physicalProperties;
+}
+thermoType
+{
+    type            heSolidThermo;
+    mixture         pureMixture;
+    transport       constIsoSolid;
+    thermo          eConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleInternalEnergy;
+}
+mixture
+{
+    specie
+    {
+        molWeight       27.5;
+    }
+    equationOfState
+    {
+        rho             2650;
+    }
+    transport
+    {
+        kappa           160;
+    }
+    thermodynamics
+    {
+        hf              0;
+        Cv              880;
+    }
+}
+// ************************************************************************* //

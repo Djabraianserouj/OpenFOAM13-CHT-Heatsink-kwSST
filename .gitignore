@@ -1,0 +1,9 @@
+processor*
+log.*
+mesh
+cellToRegion
+polyMesh/
+postProcessing/
+[0-9]*/
+!0/
+extractedData.txt

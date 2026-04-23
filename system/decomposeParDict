@@ -1,0 +1,14 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      decomposeParDict;
+}
+// Number of MPI ranks for parallel runs (Allrun_parallel). Change to e.g. 18 to use all cores.
+numberOfSubdomains 8;
+
+method          scotch;
+// ************************************************************************* //

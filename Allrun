@@ -1,0 +1,22 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit 1
+
+# Optional: ./Allrun -mesh  → rebuild mesh before solving
+if [ "$1" = "-mesh" ]; then
+    ./Allmesh || exit 1
+    shift
+fi
+
+if [ ! -f constant/fluid/polyMesh/faces ] || [ ! -f constant/solid/polyMesh/faces ]; then
+    echo "Multi-region mesh not found. Running ./Allmesh ..."
+    ./Allmesh || exit 1
+fi
+
+echo "Running foamMultiRun — residuals appear below and are saved to log.foamMultiRun"
+echo "Convergence criteria: residualControl in system/fluid/fvSolution and system/solid/fvSolution"
+echo "Live 2D plot (other terminal):  ./plotResiduals.py --live log.foamMultiRun"
+echo ""
+
+foamMultiRun 2>&1 | tee log.foamMultiRun
+#------------------------------------------------------------------------------

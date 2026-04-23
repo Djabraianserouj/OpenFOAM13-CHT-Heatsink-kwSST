@@ -1,0 +1,9 @@
+#includeEtc "caseDicts/functions/probes/probes.cfg"
+
+fields          (T p);
+
+points
+(
+    (0.035  0.025  0.0)
+    (0.275  0.025  0.0)
+);

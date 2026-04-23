@@ -1,0 +1,15 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit 1
+
+. "$WM_PROJECT_DIR/bin/tools/CleanFunctions"
+
+echo "Cleaning case (time directories, logs, meshes, processor*; keeping 0/ and mesh file)..."
+cleanCase
+
+# Remove multi-region mesh dirs if cleanCase pattern missed any
+rm -rf constant/fluid/polyMesh constant/solid/polyMesh constant/region0/polyMesh 2>/dev/null
+rm -f 0/fluid/cellToRegion 0/solid/cellToRegion 0/cellToRegion 2>/dev/null
+
+echo "Allclean finished."
+#------------------------------------------------------------------------------

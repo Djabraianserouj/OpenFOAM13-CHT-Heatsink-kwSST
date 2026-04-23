@@ -1,0 +1,34 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       volVectorField;
+    location    "0/fluid";
+    object      U;
+}
+dimensions      [0 1 -1 0 0 0 0];
+internalField   uniform (4.7 0 0);
+boundaryField
+{
+    #includeEtc "caseDicts/setConstraintTypes"
+    inlet
+    {
+        type            fixedValue;
+        value           uniform (4.7 0 0);
+    }
+    outlet
+    {
+        type            pressureInletOutletVelocity;
+        value           $internalField;
+    }
+    wall-channel
+    {
+        type            noSlip;
+    }
+    fluid_to_solid
+    {
+        type            noSlip;
+    }
+}
+// ************************************************************************* //

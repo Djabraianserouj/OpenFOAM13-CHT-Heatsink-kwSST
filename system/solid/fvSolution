@@ -1,0 +1,29 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    location    "system/solid";
+    object      fvSolution;
+}
+solvers
+{
+    "e.*"
+    {
+        solver          GAMG;
+        smoother        symGaussSeidel;
+        tolerance       1e-6;
+        relTol          0.1;
+    }
+}
+PIMPLE
+{
+    nNonOrthogonalCorrectors 0;
+
+    residualControl
+    {
+        e       1e-4;
+    }
+}
+// ************************************************************************* //

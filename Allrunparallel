@@ -1,0 +1,54 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+# Parallel run: decompose all regions, then foamMultiRun on N MPI ranks.
+#
+# Number of cores = numberOfSubdomains in system/decomposeParDict (default 4).
+# To use more cores (e.g. 18), edit that file and re-run this script.
+#
+# Convergence (stops when ALL are satisfied, unless endTime is reached first):
+#   system/fluid/fvSolution  residualControl: p_rgh, U, h, (k|epsilon) -> see file
+#   system/solid/fvSolution  residualControl: e -> see file
+#
+cd "${0%/*}" || exit 1
+
+. "$WM_PROJECT_DIR/bin/tools/RunFunctions"
+
+if [ "$1" = "-mesh" ]; then
+    ./Allmesh || exit 1
+    shift
+fi
+
+if [ ! -f constant/fluid/polyMesh/faces ] || [ ! -f constant/solid/polyMesh/faces ]; then
+    echo "Multi-region mesh not found. Running ./Allmesh ..."
+    ./Allmesh || exit 1
+fi
+
+NP="$(getNumberOfProcessors)"
+echo "Decomposing all regions for $NP MPI processes (decomposePar -allRegions)..."
+runApplication decomposePar -allRegions -force
+
+echo "Running foamMultiRun in parallel ($NP cores). Log: log.foamMultiRun"
+echo "Live residual plot (optional, other terminal):  ./plotResiduals.py --live"
+echo ""
+
+runParallel foamMultiRun
+
+echo "Reconstructing all regions (reconstructPar -allRegions)..."
+runApplication reconstructPar -allRegions
+
+echo "Creating case.foam marker file for ParaView..."
+touch case.foam
+
+echo "Removing processor directories..."
+rm -r processor*
+
+echo "Extracting converged postProcessing data..."
+./extractData.py
+
+echo ""
+echo "============================================================"
+echo "  Parallel run complete."
+echo "  Results written to : extractedData.txt"
+echo "  Open in ParaView   : paraview case.foam &"
+echo "============================================================"
+#------------------------------------------------------------------------------
