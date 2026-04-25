@@ -5,7 +5,7 @@ cd "${0%/*}" || exit 1
 # Source OpenFOAM run helpers (logging)
 . "$WM_PROJECT_DIR/bin/tools/RunFunctions"
 
-if [ ! -f mesh ]; then
+if [ ! -f mesh7x7 ]; then
     echo "Error: Fluent mesh file 'mesh' not found in $PWD"
     echo "Place the exported Fluent mesh here and re-run ./Allmesh"
     exit 1
@@ -18,7 +18,7 @@ rm -f 0/cellToRegion
 rm -f 0/fluid/cellToRegion 0/solid/cellToRegion 2>/dev/null
 
 echo "Converting Fluent mesh to OpenFOAM..."
-runApplication fluent3DMeshToFoam mesh
+runApplication fluent3DMeshToFoam mesh7x7
 
 # Rename Fluent cell zones to region folder names (if export still used fluid-fluid / solid-solid)
 if [ -d constant/region0/polyMesh ]; then
