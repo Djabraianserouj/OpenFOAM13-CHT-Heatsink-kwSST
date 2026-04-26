@@ -5,7 +5,7 @@ Steady-state conjugate heat transfer simulation of a pin fin heat sink placed in
 Turbulence model: **kw SST**
 
 ### Meshing Workflow
-Detailed meshing guide: [meshing-guide.md](meshing-guide.md)
+Detailed meshing guide: [guideMeshing.md](guideMeshing.md)
 
 **Materials:**
 - Heat sink: AlSi12
