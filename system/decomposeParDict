@@ -8,7 +8,7 @@ FoamFile
     object      decomposeParDict;
 }
 // Number of MPI ranks for parallel runs (Allrun_parallel). Change to e.g. 18 to use all cores.
-numberOfSubdomains 14;
+numberOfSubdomains 12;
 
 method          scotch;
 // ************************************************************************* //

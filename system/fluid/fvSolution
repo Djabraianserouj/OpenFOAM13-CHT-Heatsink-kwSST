@@ -34,7 +34,6 @@ PIMPLE
     residualControl
     {
         p_rgh               1e-4;
-        // Segregated momentum: "U" does not match Ux/Uy/Uz in the convergence check.
         "(Ux|Uy|Uz)"        1e-4;
         h                   1e-4;
         k                   1e-4;
@@ -46,14 +45,14 @@ relaxationFactors
     fields
     {
         rho             1.0;
-        p_rgh           0.3;
+        p_rgh           0.4;
     }
     equations
     {
-        U               0.3;
-        h               0.3;
-        k               0.3;
-        omega           0.3;
+        U               0.4;
+        h               0.4;
+        k               0.4;
+        omega           0.4;
     }
 }
 // ************************************************************************* //

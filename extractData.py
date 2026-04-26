@@ -11,6 +11,19 @@ Usage:
     ./extractData.py /path/to/case -o myOut.txt
 
 Output file: extractedData.txt  (or custom name via -o)
+
+HTC is calculated using two independent methods:
+  Method 1 — Bulk temperature method:
+      h = 1 / (A_total * R_hs)
+      R_hs = (T_heater - T_mean) / Q
+      T_mean = (T_inlet + T_outlet) / 2
+      Uses: patchAverage_inlet, patchAverage_outlet, patchAverage_heater
+
+  Method 2 — Wall heat flux method (more direct):
+      h = q_wall / (T_wall - T_inlet)
+      q_wall = area-averaged wall heat flux from wallHeatFlux.dat
+      T_wall = area-averaged fluid temperature at fluid_to_solid interface
+      Uses: wallHeatFlux.dat, patchAverage_interface
 """
 from __future__ import annotations
 
@@ -21,7 +34,7 @@ from pathlib import Path
 
 # ── Constants (edit these to match your case) ──────────────────────────────────
 Q        = 25.0          # Applied heater power [W]
-A_TOTAL  = 12617e-6      # Total wetted surface area of heat sink [m²]
+A_TOTAL  = 12617e-6      # Fallback wetted area [m²] — overridden by mesh header if available
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -47,6 +60,29 @@ def last_data_line(path: Path) -> list[str] | None:
         if stripped and not stripped.startswith("#"):
             last = stripped.split()
     return last
+
+
+def read_patch_area(case_dir: Path, region: str, folder_prefix: str,
+                    filename: str = "surfaceFieldValue.dat") -> float | None:
+    """
+    Read the wetted area from the '# Area : X.XXX' header line
+    in a surfaceFieldValue.dat file. Returns area in m² or None if not found.
+    """
+    base = case_dir / "postProcessing" / region
+    folder = find_dir(base, folder_prefix)
+    if folder is None:
+        return None
+    dat = folder / "0" / filename
+    if not dat.exists():
+        return None
+    for line in dat.read_text(errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# Area"):
+            try:
+                return float(stripped.split(":")[-1].strip())
+            except ValueError:
+                return None
+    return None
 
 
 def read_dat(case_dir: Path, region: str, folder_prefix: str,
@@ -90,7 +126,6 @@ def read_probe(case_dir: Path, region: str, field: str) -> list[str] | None:
     return cols
 
 
-
 def read_yplus(case_dir: Path) -> dict[str, dict[str, str]]:
     """
     Parse postProcessing/fluid/yPlus*/0/yPlus.dat.
@@ -122,6 +157,33 @@ def read_yplus(case_dir: Path) -> dict[str, dict[str, str]]:
     return result
 
 
+def read_wallheatflux(case_dir: Path) -> list[str] | None:
+    """
+    Parse postProcessing/fluid/wallHeatFlux*/0/wallHeatFlux.dat.
+    Returns the last data row for the fluid_to_solid patch.
+    Columns: Time  patch  min[W/m2]  max[W/m2]  Q[W]  q[W/m2]
+    """
+    base = case_dir / "postProcessing" / "fluid"
+    folder = find_dir(base, "wallHeatFlux")
+    if folder is None:
+        print("  [WARN] wallHeatFlux folder not found")
+        return None
+    dat = folder / "0" / "wallHeatFlux.dat"
+    if not dat.exists():
+        print(f"  [WARN] wallHeatFlux.dat not found: {dat}")
+        return None
+    last = None
+    for line in dat.read_text(errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            cols = stripped.split()
+            if len(cols) >= 6 and cols[1] == "fluid_to_solid":
+                last = cols
+    if last is None:
+        print("  [WARN] no fluid_to_solid data found in wallHeatFlux.dat")
+    return last
+
+
 def safe(cols: list[str] | None, index: int, label: str = "N/A") -> str:
     """Safely retrieve a column value, return label if missing."""
     if cols is None:
@@ -142,12 +204,21 @@ def extract(case_dir: Path) -> dict:
     r: dict = {}
 
     # ── Raw column reads ───────────────────────────────────────────────────────
-    inlet   = read_dat(case_dir, "fluid", "patchAverage_inlet")
-    outlet  = read_dat(case_dir, "fluid", "patchAverage_outlet")
-    heater  = read_dat(case_dir, "solid", "patchAverage_heater")
-    probe_T = read_probe(case_dir, "fluid", "T")
-    probe_p = read_probe(case_dir, "fluid", "p")
-    yplus   = read_yplus(case_dir)
+    inlet      = read_dat(case_dir, "fluid", "patchAverage_inlet")
+    outlet     = read_dat(case_dir, "fluid", "patchAverage_outlet")
+    heater     = read_dat(case_dir, "solid", "patchAverage_heater")
+    interface  = read_dat(case_dir, "fluid", "patchAverage_interface")
+    probe_T    = read_probe(case_dir, "fluid", "T")
+    probe_p    = read_probe(case_dir, "fluid", "p")
+    yplus      = read_yplus(case_dir)
+    whf        = read_wallheatflux(case_dir)
+
+    # ── Wetted area — read from mesh header, fall back to constant ─────────────
+    # Area is extracted from the '# Area : X.XXX' line in patchAverage_interface
+    A_mesh = read_patch_area(case_dir, "fluid", "patchAverage_interface")
+    r["A_mesh"]        = A_mesh if A_mesh is not None else A_TOTAL
+    r["A_mesh_source"] = "mesh header (patchAverage_interface)" if A_mesh is not None \
+                         else "fallback constant (A_TOTAL)"
 
     # ── Iteration (inlet file used — all patches converge at same step) ────────
     r["iteration"] = safe(inlet, 0)
@@ -168,6 +239,16 @@ def extract(case_dir: Path) -> dict:
     # ── Solid patch ────────────────────────────────────────────────────────────
     r["heater_T"] = safe(heater, 1)
 
+    # ── Interface patch (fluid side of fluid_to_solid) ─────────────────────────
+    r["interface_T"] = safe(interface, 1)   # area-averaged fluid T at interface [K]
+
+    # ── Wall heat flux at fluid_to_solid interface ─────────────────────────────
+    # Columns: Time  patch  min  max  Q  q
+    r["whf_q_min"] = safe(whf, 2)   # min local heat flux    [W/m²]
+    r["whf_q_max"] = safe(whf, 3)   # max local heat flux    [W/m²]
+    r["whf_Q"]     = safe(whf, 4)   # total integrated power [W] — sanity check
+    r["whf_q_avg"] = safe(whf, 5)   # area-averaged heat flux [W/m²]
+
     # ── Derived: pressure drop and temperature rise ────────────────────────────
     try:
         r["delta_p"] = float(r["inlet_p"]) - float(r["outlet_p"])
@@ -179,24 +260,38 @@ def extract(case_dir: Path) -> dict:
     except (ValueError, TypeError):
         r["delta_T"] = None
 
-    # ── Heat sink performance metrics ──────────────────────────────────────────
-    # T_mean = (T_in + T_out) / 2
-    # R_hs   = (T_heater - T_mean) / Q          [K/W]
-    # h      = 1 / (A_total * R_hs)             [W/(m²·K)]
+    # ── Method 1: Bulk temperature HTC ────────────────────────────────────────
+    # h = 1 / (A * R_hs)
+    # R_hs = (T_heater - T_mean) / Q
+    # T_mean = (T_inlet + T_outlet) / 2
     try:
         T_in     = float(r["inlet_T"])
         T_out    = float(r["outlet_T"])
         T_heater = float(r["heater_T"])
+        A        = float(r["A_mesh"])
         T_mean   = (T_in + T_out) / 2.0
         R_hs     = (T_heater - T_mean) / Q
-        h_conv   = 1.0 / (A_TOTAL * R_hs)
+        h_bulk   = 1.0 / (A * R_hs)
         r["T_mean"] = T_mean
         r["R_hs"]   = R_hs
-        r["h_conv"] = h_conv
-    except (ValueError, TypeError):
+        r["h_bulk"] = h_bulk
+    except (ValueError, TypeError, ZeroDivisionError):
         r["T_mean"] = None
         r["R_hs"]   = None
-        r["h_conv"] = None
+        r["h_bulk"] = None
+
+    # ── Method 2: Wall heat flux HTC ──────────────────────────────────────────
+    # h = q_wall / (T_wall - T_inlet)
+    # q_wall from wallHeatFlux.dat
+    # T_wall from patchAverage_interface (fluid side)
+    # T_ref = T_inlet
+    try:
+        q_avg  = float(r["whf_q_avg"])
+        T_wall = float(r["interface_T"])
+        T_ref  = float(r["inlet_T"])
+        r["h_wallflux"] = q_avg / (T_wall - T_ref)
+    except (ValueError, TypeError, ZeroDivisionError):
+        r["h_wallflux"] = None
 
     return r
 
@@ -216,6 +311,7 @@ def fmt(val, unit: str = "", precision: int = 6) -> str:
 
 def write_output(r: dict, out_path: Path, case_dir: Path) -> None:
     SEP  = "=" * 62
+    SEC  = "*** "        # section marker
     SEP2 = "-" * 62
 
     lines = [
@@ -225,7 +321,7 @@ def write_output(r: dict, out_path: Path, case_dir: Path) -> None:
         f"  Iteration : {r['iteration']}",
         SEP,
         "",
-        "  [y+ wall distance — mesh quality check]",
+        f"{SEC}y+ wall distance — mesh quality check",
     ]
 
     yplus = r.get("yplus", {})
@@ -240,7 +336,7 @@ def write_output(r: dict, out_path: Path, case_dir: Path) -> None:
 
     lines += [
         "",
-        "  [Probes — fluid region]",
+        f"{SEC}Probes — fluid region",
         "    Probe 0  (0.035, 0.025, 0.0) m",
         f"      T                    : {fmt(r['probe0_T'], 'K')}",
         f"      p                    : {fmt(r['probe0_p'], 'Pa')}",
@@ -248,28 +344,47 @@ def write_output(r: dict, out_path: Path, case_dir: Path) -> None:
         f"      T                    : {fmt(r['probe1_T'], 'K')}",
         f"      p                    : {fmt(r['probe1_p'], 'Pa')}",
         "",
-        "  [Patch averages — fluid region]",
+        f"{SEC}Patch averages — fluid region",
         "    Inlet",
         f"      Average T            : {fmt(r['inlet_T'],  'K')}",
         f"      Average p            : {fmt(r['inlet_p'],  'Pa')}",
         "    Outlet",
         f"      Average T            : {fmt(r['outlet_T'], 'K')}",
         f"      Average p            : {fmt(r['outlet_p'], 'Pa')}",
+        "    Interface (fluid_to_solid — fluid side)",
+        f"      Average T            : {fmt(r['interface_T'], 'K')}",
         "",
-        "  [Patch average — solid region]",
+        f"{SEC}Patch average — solid region",
         "    Heater",
         f"      Average T            : {fmt(r['heater_T'], 'K')}",
         "",
-        "  [Derived quantities]",
+        f"{SEC}Wall heat flux — fluid_to_solid interface",
+        f"    q_min                  : {fmt(r['whf_q_min'], 'W/m²')}",
+        f"    q_max                  : {fmt(r['whf_q_max'], 'W/m²')}",
+        f"    q_avg                  : {fmt(r['whf_q_avg'], 'W/m²')}",
+        f"    Q_total (sanity check) : {fmt(r['whf_Q'],     'W')}",
+        "",
+        f"{SEC}Derived quantities",
         f"    Pressure drop          : {fmt(r['delta_p'], 'Pa')}",
         f"    Temperature rise       : {fmt(r['delta_T'], 'K')}",
         "",
-        "  [Heat sink performance metrics]",
+        f"{SEC}Heat sink performance metrics",
         f"    Applied power    Q     : {Q:.2f} W",
-        f"    Wetted area      A     : {A_TOTAL:.4e} m²",
-        f"    Mean fluid temp  T_m   : {fmt(r['T_mean'], 'K')}",
-        f"    Thermal resist.  R_hs  : {fmt(r['R_hs'],   'K/W')}",
-        f"    Conv. coeff.     h     : {fmt(r['h_conv'],  'W/(m²·K)')}",
+        f"    Wetted area      A     : {fmt(r['A_mesh'], 'm²')}",
+        f"    Area source            : {r['A_mesh_source']}",
+        "",
+        "    --> Method 1 — Bulk temperature method",
+        "        h = 1 / (A * R_hs),  R_hs = (T_heater - T_mean) / Q",
+        "        T_mean = (T_inlet + T_outlet) / 2",
+        f"        Mean fluid temp  T_m : {fmt(r['T_mean'], 'K')}",
+        f"        Thermal resist. R_hs : {fmt(r['R_hs'],   'K/W')}",
+        f"        HTC (bulk)       h   : {fmt(r['h_bulk'], 'W/(m²·K)')}",
+        "",
+        "    --> Method 2 — Wall heat flux method",
+        "        h = q_wall / (T_wall - T_inlet)",
+        "        q_wall from wallHeatFlux.dat, T_wall from patchAverage_interface",
+        f"        Wall temp    T_wall  : {fmt(r['interface_T'], 'K')}",
+        f"        HTC (wallflux)   h   : {fmt(r['h_wallflux'], 'W/(m²·K)')}",
         "",
         SEP,
         "",
@@ -277,8 +392,8 @@ def write_output(r: dict, out_path: Path, case_dir: Path) -> None:
         SEP2,
     ]
 
-    # Scripted parsing block — skip iteration and coordinate labels
-    skip = {"iteration", "yplus"}
+    # Scripted parsing block — skip iteration and yplus dict
+    skip = {"iteration", "yplus", "A_mesh_source"}
     for key, val in r.items():
         if key in skip:
             continue

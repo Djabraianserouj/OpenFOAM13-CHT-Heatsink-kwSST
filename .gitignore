@@ -1,6 +1,7 @@
 processor*
 log.*
 mesh*
+case.foam
 cellToRegion
 polyMesh/
 postProcessing/
