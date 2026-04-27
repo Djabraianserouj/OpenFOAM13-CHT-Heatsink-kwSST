@@ -1,8 +1,8 @@
 #!/bin/bash -l
 #SBATCH --job-name=PLACEHOLDER
 #SBATCH --nodes=1
-#SBATCH --ntasks=32
-#SBATCH --ntasks-per-node=32
+#SBATCH --ntasks=16
+#SBATCH --ntasks-per-node=16
 #SBATCH --time=23:59:00
 #SBATCH --partition=work
 #SBATCH --output=log.slurm_%j.out
