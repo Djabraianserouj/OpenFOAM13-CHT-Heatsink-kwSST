@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
 #SBATCH --ntasks-per-node=16
-#SBATCH --time=23:59:00
+#SBATCH --time=10:00:00
 #SBATCH --partition=work
 #SBATCH --output=log.slurm_%j.out
 #SBATCH --error=log.slurm_%j.err
