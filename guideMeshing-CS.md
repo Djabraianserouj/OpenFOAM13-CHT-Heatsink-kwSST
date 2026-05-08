@@ -26,7 +26,7 @@ Mesh → Export → STL
 ## Step 2 — Import STL into SpaceClaim
 
 ```
-File → Open → select .stl file
+File → Open → select .stl file. If units are incorrect, then SpaceClaim options → File Options → STL → Import → Units (set the correct unit)
 ```
 
 ---

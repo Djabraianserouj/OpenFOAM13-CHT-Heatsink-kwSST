@@ -8,14 +8,14 @@ FoamFile
     object      T;
 }
 dimensions      [0 0 0 1 0 0 0];
-internalField   uniform 293.15;
+internalField   uniform 294.65; // 294.65 K = 21.5°C measured by hot wire anemometer in the lab
 boundaryField
 {
     #includeEtc "caseDicts/setConstraintTypes"
     inlet
     {
         type            fixedValue;
-        value           uniform 293.15;
+        value           uniform 294.65;
     }
     outlet
     {

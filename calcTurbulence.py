@@ -18,13 +18,13 @@ import math
 #  INPUT PARAMETERS — edit these values
 # =============================================================================
 
-U    = 4.7      # Inlet velocity            [m/s]
-I    = 0.05     # Turbulence intensity       [-]     (0.05 = 5%)
+U    = 3.7      # Inlet velocity            [m/s]
+I    = 0.02     # Turbulence intensity       [-]     (0.05 = 5%)
 W    = 0.040    # Duct width                 [m]
 H    = 0.050    # Duct height                [m]
 
 # Fluid properties (air at 20°C)
-rho  = 1.204    # Density                    [kg/m³]
+rho  = 1.2      # Density                    [kg/m³]
 mu   = 1.8e-5   # Dynamic viscosity          [Pa·s]
 
 # Target y+ values for first layer height calculation

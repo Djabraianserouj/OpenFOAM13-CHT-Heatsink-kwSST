@@ -8,14 +8,14 @@ FoamFile
     object      k;
 }
 dimensions      [0 2 -2 0 0 0 0];
-internalField   uniform 0.082838;
+internalField   uniform 0.008214;
 boundaryField
 {
     #includeEtc "caseDicts/setConstraintTypes"
     inlet
     {
         type            turbulentIntensityKineticEnergyInlet;
-        intensity       0.05;
+        intensity       0.02;
         value           $internalField;
     }
     outlet
