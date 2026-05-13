@@ -78,25 +78,13 @@ Design tab → Pull → extrude 3 mm downward
 
 The base plate dimensions are **50 × 50 × 3 mm**. This represents the heater base that connects the cooling structure to the heater boundary condition in OpenFOAM.
 
-Convert the base plate to a faceted body to match the STL cooling structure:
+Convert the cooling structures to a solid body:
 
 ```
-Design tab → select base plate solid → right-click → Facets → Convert to Facets
+Right-click on Facets in Structure tree → Convert to Solid → Do not Merge Faces
 ```
 
-Merge the base plate facets with the cooling structure facets into a single body:
-
-```
-Facets tab → select both faceted bodies → Merge Facets
-```
-
-The Structure tree should now show a single **Facets** entry.
-
-Convert the merged faceted body to a solid:
-
-```
-right-click on Facets in Structure tree → Convert to Solid → Merge Faces
-```
+Combine the base plate facets with the cooling structure into a single body
 
 This produces a single solid body representing the complete heat sink (cooling structure + base plate).
 
