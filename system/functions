@@ -3,10 +3,8 @@ functions
     #includeFunc residuals              ( region = fluid, p_rgh, U, h, k, omega )
     #includeFunc residuals              ( region = solid, e )
     #includeFunc yPlus                  ( region = fluid )
-    #includeFunc probes                 ( region = fluid )
     #includeFunc patchAverage_inlet     ( region = fluid )
     #includeFunc patchAverage_outlet    ( region = fluid )
     #includeFunc patchAverage_heater    ( region = solid )
     #includeFunc wallHeatFlux           ( region = fluid )
-    #includeFunc patchAverage_interface ( region = fluid )
 }
